@@ -8,54 +8,69 @@ from PIL import Image
 import io
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import json
 import os
 
-# Fungsi untuk encode image ke base64
-def encode_image(image):
+# -------------------------
+# Helper: encode/decode image
+# -------------------------
+def encode_image(image: Image.Image) -> str:
     buffered = io.BytesIO()
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# Fungsi untuk decode base64 ke image
-def decode_image(encoded_str):
+def decode_image(encoded_str: str) -> Image.Image:
     return Image.open(io.BytesIO(base64.b64decode(encoded_str)))
 
-# Fungsi untuk load profiles dari file
+# -------------------------
+# Load / Save profiles
+# -------------------------
 def load_profiles():
     if os.path.exists("profiles.json"):
         with open("profiles.json", "r") as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                return []
+            # decode photos if ada
             for profile in data:
-                if profile["photo"]:
-                    profile["photo"] = decode_image(profile["photo"])
+                if profile.get("photo"):
+                    try:
+                        profile["photo"] = decode_image(profile["photo"])
+                    except Exception:
+                        profile["photo"] = None
             return data
+    # Default example profiles
     return [
         {"name": "Pembuat 1", "student_id": "12345678", "university": "Universitas Indonesia", "major": "Informatika", "year": "2020", "contribution": "Pengembang UI dan Graph Theory", "photo": None},
         {"name": "Pembuat 2", "student_id": "87654321", "university": "Universitas Gadjah Mada", "major": "Teknik Komputer", "year": "2021", "contribution": "Pengembang Algoritma dan Data Kota", "photo": None}
     ]
 
-# Fungsi untuk save profiles ke file
 def save_profiles(profiles):
     data = []
     for profile in profiles:
         p = profile.copy()
-        if p["photo"]:
-            p["photo"] = encode_image(p["photo"])
+        if p.get("photo") and isinstance(p["photo"], Image.Image):
+            try:
+                p["photo"] = encode_image(p["photo"])
+            except Exception:
+                p["photo"] = None
+        else:
+            p["photo"] = None
         data.append(p)
     with open("profiles.json", "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=2)
 
-# Custom CSS untuk tema manhwa dark fantasy UI dengan sistem aura dan glow
+# -------------------------
+# Custom CSS theme
+# -------------------------
 st.markdown("""
 <style>
     body {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
         color: #e94560;
         font-family: 'Courier New', monospace;
-        margin: 0;
-        padding: 0;
-        overflow-x: hidden;
     }
     .system-panel {
         background: rgba(22, 33, 62, 0.9);
@@ -83,61 +98,20 @@ st.markdown("""
     }
     .stButton>button:hover {
         box-shadow: 0 0 25px #e94560, 0 0 35px #0f3460;
-        transform: scale(1.1);
-        background: linear-gradient(45deg, #0f3460, #16213e);
-    }
-    .stButton>button:active {
-        box-shadow: 0 0 40px #e94560;
-        transform: scale(0.95);
+        transform: scale(1.05);
     }
     .stTextInput>input, .stSelectbox>select, .stTextArea>textarea {
         background: rgba(22, 33, 62, 0.8);
         color: #e94560;
         border: 1px solid #0f3460;
         border-radius: 8px;
-        box-shadow: inset 0 0 5px rgba(233, 69, 96, 0.2);
-        transition: all 0.3s ease;
-    }
-    .stTextInput>input:focus, .stSelectbox>select:focus, .stTextArea>textarea:focus {
-        box-shadow: 0 0 10px #e94560, inset 0 0 10px rgba(233, 69, 96, 0.3);
-        border-color: #e94560;
-    }
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
-        color: #e94560;
-        text-shadow: 0 0 10px #0f3460, 0 0 20px #e94560;
-        font-weight: bold;
-        text-align: center;
-        animation: pulse 3s ease-in-out infinite;
-    }
-    @keyframes pulse {
-        0%, 100% { text-shadow: 0 0 10px #0f3460, 0 0 20px #e94560; }
-        50% { text-shadow: 0 0 15px #0f3460, 0 0 30px #e94560; }
-    }
-    .aura-cursor {
-        cursor: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTk0NTYwIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSI1IiBmaWxsPSIjZTk0NTYwIi8+Cjwvc3ZnPg=='), auto;
-    }
-    .fade-in {
-        animation: fadeIn 1.5s ease-in;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .sidebar .sidebar-content {
-        background: rgba(22, 33, 62, 0.9);
-        border-right: 2px solid #0f3460;
-        box-shadow: inset 0 0 10px rgba(233, 69, 96, 0.2);
-    }
-    .stDataFrame {
-        background: rgba(22, 33, 62, 0.8);
-        border: 1px solid #0f3460;
-        border-radius: 10px;
-        box-shadow: 0 0 10px #e94560;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Data Kota (koordinat GPS perkiraan; contoh untuk beberapa kota per provinsi)
+# -------------------------
+# Data kota (koordinat)
+# -------------------------
 cities_data = {
     "Banten": {
         "Serang": (-6.1200, 106.1500),
@@ -178,122 +152,147 @@ cities_data = {
     }
 }
 
-# Fungsi untuk membuat graph
-def create_graph(province):
+# -------------------------
+# Graph builder & algorithms
+# -------------------------
+def create_graph(province: str) -> nx.Graph:
     G = nx.Graph()
     cities = cities_data.get(province, {})
     for city, coord in cities.items():
         G.add_node(city, pos=coord)
-    for i, (city1, coord1) in enumerate(cities.items()):
-        for city2, coord2 in list(cities.items())[i+1:]:
-            dist = geodesic(coord1, coord2).km
+    # add weighted edges (complete graph among cities in province)
+    city_items = list(cities.items())
+    for i in range(len(city_items)):
+        city1, coord1 = city_items[i]
+        for j in range(i+1, len(city_items)):
+            city2, coord2 = city_items[j]
+            try:
+                dist = geodesic(coord1, coord2).km
+            except Exception:
+                dist = float(np.linalg.norm(np.array(coord1) - np.array(coord2)))
             G.add_edge(city1, city2, weight=dist)
     return G
 
-# Fungsi untuk shortest path dengan Dijkstra
-def shortest_path(G, start, end):
+def shortest_path(G: nx.Graph, start: str, end: str):
     try:
         path = nx.shortest_path(G, source=start, target=end, weight='weight')
         length = nx.shortest_path_length(G, source=start, target=end, weight='weight')
         return path, length
     except nx.NetworkXNoPath:
         return None, None
+    except Exception:
+        return None, None
 
-# Fungsi untuk visualisasi peta
-def create_map(G, path=None, zoom_city=None):
-    m = folium.Map(location=[-7.0, 110.0], zoom_start=8, tiles='CartoDB dark_matter')
+# -------------------------
+# Folium map
+# -------------------------
+def create_map(G: nx.Graph, path=None, zoom_city=None, default_location=[-7.0, 110.0], default_zoom=7):
+    # choose starting center: zoom_city if provided else default center
+    if zoom_city and zoom_city in G.nodes:
+        center = list(G.nodes[zoom_city]['pos'])
+        zoom = 11
+    else:
+        center = default_location
+        zoom = default_zoom
+
+    m = folium.Map(location=center, zoom_start=zoom, tiles='CartoDB dark_matter')
+    # markers
     for node, data in G.nodes(data=True):
         folium.Marker(location=data['pos'], popup=node, icon=folium.Icon(color='blue')).add_to(m)
-    if path:
+    # path lines
+    if path and len(path) >= 2:
+        coords = []
         for i in range(len(path)-1):
             coord1 = G.nodes[path[i]]['pos']
             coord2 = G.nodes[path[i+1]]['pos']
             folium.PolyLine([coord1, coord2], color='red', weight=5).add_to(m)
-        if zoom_city:
-            m.location = G.nodes[zoom_city]['pos']
-            m.zoom_start = 12
+            coords.append(coord1)
+            coords.append(coord2)
     return m
 
-# Load profiles dari file
+# -------------------------
+# Session state: profiles
+# -------------------------
 if 'profiles' not in st.session_state:
     st.session_state.profiles = load_profiles()
 
-# Navigasi (ditambahkan halaman baru tanpa mengubah yang lama)
+# -------------------------
+# Navigation
+# -------------------------
 page = st.sidebar.selectbox("Navigasi", ["Dashboard", "Profil Tim", "Matrix Applications", "Map & Graph System"])
 
 if page == "Dashboard":
-    st.markdown('<div class="system-panel fade-in"><h1>Map System - Pulau Jawa</h1></div>', unsafe_allow_html=True)
-    st.write("Selamat datang di sistem peta interaktif dengan Graph Theory. Pilih halaman untuk melanjutkan.")
+    st.markdown('<div class="system-panel"><h1>Map System - Pulau Jawa</h1></div>', unsafe_allow_html=True)
+    st.write("Selamat datang di sistem peta interaktif dengan Graph Theory.")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Profil Tim", key="profil_btn"):
-            st.session_state.page = "Profil Tim"
+        if st.button("Profil Tim"):
+            st.experimental_rerun()  # biarkan selectbox handle navigation
     with col2:
-        if st.button("Map & Graph System", key="map_btn"):
-            st.session_state.page = "Map & Graph System"
+        if st.button("Map & Graph System"):
+            st.experimental_rerun()
 
 elif page == "Profil Tim":
-    st.markdown('<div class="system-panel fade-in"><h2>👤 Profil Tim</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="system-panel"><h2>👤 Profil Tim</h2></div>', unsafe_allow_html=True)
     for i, profile in enumerate(st.session_state.profiles):
         st.subheader(f"Profil {i+1}")
         col1, col2 = st.columns([1, 3])
         with col1:
-            # Tampilkan foto dari session state jika ada
-            if profile["photo"]:
+            if profile.get("photo"):
                 st.image(profile["photo"], width=100)
-                # Tombol hapus foto
                 if st.button(f"Hapus Foto {i+1}", key=f"delete_{i}"):
                     st.session_state.profiles[i]["photo"] = None
-                    save_profiles(st.session_state.profiles)  # Save setelah hapus
-                    st.rerun()  # Rerun untuk refresh tampilan
-            # File uploader selalu muncul
+                    save_profiles(st.session_state.profiles)
+                    st.experimental_rerun()
             uploaded_file = st.file_uploader(f"Upload Foto {i+1}", type=["jpg", "png"], key=f"upload_{i}")
             if uploaded_file:
-                # Buka gambar dan simpan ke session state
-                image = Image.open(uploaded_file)
+                try:
+                    image = Image.open(uploaded_file).convert("RGBA")
+                except Exception:
+                    image = Image.open(uploaded_file)
                 st.session_state.profiles[i]["photo"] = image
-                # Tampilkan gambar langsung setelah upload
                 st.image(image, width=100)
-                save_profiles(st.session_state.profiles)  # Save setelah upload
+                save_profiles(st.session_state.profiles)
         with col2:
-            st.session_state.profiles[i]["name"] = st.text_input("Nama", profile["name"], key=f"name_{i}")
-            st.session_state.profiles[i]["student_id"] = st.text_input("Student ID", profile["student_id"], key=f"id_{i}")
-            st.session_state.profiles[i]["university"] = st.text_input("Universitas", profile["university"], key=f"uni_{i}")
-            st.session_state.profiles[i]["major"] = st.text_input("Jurusan", profile["major"], key=f"major_{i}")
-            st.session_state.profiles[i]["year"] = st.text_input("Angkatan", profile["year"], key=f"year_{i}")
-            st.session_state.profiles[i]["contribution"] = st.text_area("Deskripsi Kontribusi", profile["contribution"], key=f"contrib_{i}")
-    # Save profiles setelah semua input (untuk text changes)
+            st.session_state.profiles[i]["name"] = st.text_input("Nama", profile.get("name", ""), key=f"name_{i}")
+            st.session_state.profiles[i]["student_id"] = st.text_input("Student ID", profile.get("student_id", ""), key=f"id_{i}")
+            st.session_state.profiles[i]["university"] = st.text_input("Universitas", profile.get("university", ""), key=f"uni_{i}")
+            st.session_state.profiles[i]["major"] = st.text_input("Jurusan", profile.get("major", ""), key=f"major_{i}")
+            st.session_state.profiles[i]["year"] = st.text_input("Angkatan", profile.get("year", ""), key=f"year_{i}")
+            st.session_state.profiles[i]["contribution"] = st.text_area("Deskripsi Kontribusi", profile.get("contribution", ""), key=f"contrib_{i}")
+    # Save text changes
     save_profiles(st.session_state.profiles)
 
 elif page == "Matrix Applications":
-    st.markdown('<div class="system-panel fade-in"><h2>📊 Matrix Applications</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="system-panel"><h2>📊 Matrix Applications</h2></div>', unsafe_allow_html=True)
     province = st.selectbox("Pilih Provinsi untuk Graph", list(cities_data.keys()))
     if province:
         G = create_graph(province)
         st.write(f"Graph untuk {province} dibuat dengan {len(G.nodes)} kota.")
         
-        # Graph Visualization
-        st.subheader("Graph Visualization")
+        # Use geographic positions to draw graph
+        st.subheader("Graph Visualization (pos geografis)")
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.set_facecolor('#1a1a2e')
         fig.patch.set_facecolor('#1a1a2e')
-        pos = nx.spring_layout(G)
-        nx.draw(G, pos, with_labels=True, node_color='#16213e', edge_color='#e94560', ax=ax, font_color='#e94560')
+        ax.set_facecolor('#1a1a2e')
+        # use stored 'pos' for plot
+        pos_geo = {n: data['pos'] for n, data in G.nodes(data=True)}
+        nx.draw(G, pos=pos_geo, with_labels=True, node_size=300, node_color='#16213e', edge_color='#e94560', ax=ax, font_color='#e94560')
         st.pyplot(fig)
         
         # Degree tiap vertex
         st.subheader("Degree Tiap Vertex")
         degrees = dict(G.degree())
-        for node, deg in degrees.items():
-            st.write(f"{node}: Degree {deg}")
+        deg_df = pd.DataFrame(list(degrees.items()), columns=["City", "Degree"]).set_index("City")
+        st.dataframe(deg_df)
         
-        # Adjacency Matrix
+        # Adjacency Matrix (labelled)
         st.subheader("Adjacency Matrix")
-        adj_matrix = nx.adjacency_matrix(G).todense()
-        st.dataframe(adj_matrix)
+        adj = nx.to_pandas_adjacency(G, weight='weight')
+        st.dataframe(adj)
 
 elif page == "Map & Graph System":
-    st.markdown('<div class="system-panel fade-in"><h2>🗺️ Map & Graph System</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="system-panel"><h2>🗺️ Map & Graph System</h2></div>', unsafe_allow_html=True)
     province = st.selectbox("Pilih Provinsi", list(cities_data.keys()))
     if province:
         G = create_graph(province)
@@ -305,24 +304,61 @@ elif page == "Map & Graph System":
         with col2:
             end_city = st.selectbox("Kota Tujuan", list(G.nodes), key="end")
         
-        if start_city and end_city and start_city != end_city:
-            path, length = shortest_path(G, start_city, end_city)
-            if path:
-                st.success(f"Jalur Terpendek: {' -> '.join(path)} | Jarak: {length:.2f} km")
-                m = create_map(G, path, end_city)
+        # Pencarian Kota (case-insensitive)
+        st.subheader("🔍 Pencarian Kota")
+        search_input = st.text_input("Masukkan nama kota (bisa partial, case-insensitive)", "")
+        found_matches = []
+        if search_input:
+            q = search_input.strip().lower()
+            for prov, cities in cities_data.items():
+                for city, coord in cities.items():
+                    if q in city.lower():
+                        found_matches.append((prov, city, coord))
+            if not found_matches:
+                st.error("Kota tidak ditemukan. Periksa ejaan!", icon="⚠️")
             else:
-                st.error("Tidak ada jalur tersedia.")
-                m = create_map(G)
+                st.success(f"Ditemukan {len(found_matches)} hasil:")
+                for idx, (prov, city, coord) in enumerate(found_matches, start=1):
+                    st.write(f"{idx}. {city} — {prov} ({coord[0]:.4f}, {coord[1]:.4f})")
+                # Pilih hasil untuk di-zoom
+                sel = st.selectbox("Pilih hasil untuk zoom ke peta", ["(tidak ada pilihan)"] + [f"{c} — {p}" for p, c, _ in [(x[0], x[1], x[2]) for x in found_matches]])
+                zoom_city = None
+                if sel != "(tidak ada pilihan)":
+                    # sel string format "City — Province"
+                    city_name = sel.split(" — ")[0].strip()
+                    if city_name in G.nodes:
+                        zoom_city = city_name
+                    else:
+                        # city from different province (not in current G)
+                        # find the coord and create a temporary single-node map centering there
+                        match = next((m for m in found_matches if m[1] == city_name), None)
+                        if match:
+                            # create a tiny map centered on this external city
+                            m_temp = folium.Map(location=list(match[2]), zoom_start=11, tiles='CartoDB dark_matter')
+                            folium.Marker(location=match[2], popup=city_name).add_to(m_temp)
+                            st_folium(m_temp, width=700, height=400)
+                            zoom_city = None  # we already displayed a focused map
         else:
-            m = create_map(G)
-        
+            zoom_city = None
+
+        # compute path only if start and end are distinct
+        if start_city and end_city:
+            if start_city == end_city:
+                st.warning("Kota awal dan tujuan sama — pilih kota berbeda untuk menghitung jalur.")
+                path = None
+                length = None
+            else:
+                path, length = shortest_path(G, start_city, end_city)
+                if path:
+                    st.success(f"Jalur Terpendek: {' -> '.join(path)} | Jarak: {length:.2f} km")
+                else:
+                    st.error("Tidak ada jalur tersedia.")
+        else:
+            path = None
+            length = None
+
+        # buat peta akhir (zoom ke path/end/selected city bila ada)
+        # jika zoom_city dari pencarian dan ada di graph, gunakan itu; jika tidak, gunakan end_city jika ada
+        map_zoom_target = zoom_city if (zoom_city and zoom_city in G.nodes) else (end_city if end_city in G.nodes else None)
+        m = create_map(G, path=path, zoom_city=map_zoom_target)
         st_folium(m, width=700, height=500)
-    
-    # Pencarian Kota
-    st.subheader("🔍 Pencarian Kota")
-    search_input = st.text_input("Masukkan nama kota", "")
-    st.markdown("❓ Klik ikon untuk panduan: Masukkan nama kota yang tepat (case-sensitive).")
-    if search_input:
-        found = any(search_input in city for cities in cities_data.values() for city in cities)
-        if not found:
-            st.error("Kota tidak ditemukan. Periksa ejaan!", icon="⚠️")
