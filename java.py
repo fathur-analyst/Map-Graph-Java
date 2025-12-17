@@ -61,7 +61,6 @@ def save_profiles(profiles):
         data.append(p)
     with open("profiles.json", "w") as f:
         json.dump(data, f, indent=2)
-
 # -------------------------
 # Custom CSS theme
 # -------------------------
@@ -100,7 +99,7 @@ st.markdown("""
         box-shadow: 0 0 25px #e94560, 0 0 35px #0f3460;
         transform: scale(1.05);
     }
-    .stTextInput>input, .stSelectbox>select, .stTextArea>textarea {
+    .stTextInput>input, .stSelectbox>select, .stTextArea>textarea, .stNumberInput>input {
         background: rgba(22, 33, 62, 0.8);
         color: #e94560;
         border: 1px solid #0f3460;
@@ -199,17 +198,19 @@ def create_map(G: nx.Graph, path=None, zoom_city=None, default_location=[-7.0, 1
     # markers
     for node, data in G.nodes(data=True):
         folium.Marker(location=data['pos'], popup=node, icon=folium.Icon(color='blue')).add_to(m)
-    # path lines
+    # all edges in blue (menampilkan garis saling terhubung antar kota saat provinsi dipilih)
+    for u, v in G.edges():
+        coord1 = G.nodes[u]['pos']
+        coord2 = G.nodes[v]['pos']
+        folium.PolyLine([coord1, coord2], color='blue', weight=3, opacity=0.7).add_to(m)
+    # path lines in red (highlight untuk path terpendek saat memilih dua kota)
     if path and len(path) >= 2:
-        coords = []
         for i in range(len(path)-1):
             coord1 = G.nodes[path[i]]['pos']
             coord2 = G.nodes[path[i+1]]['pos']
             folium.PolyLine([coord1, coord2], color='red', weight=5).add_to(m)
-            coords.append(coord1)
-            coords.append(coord2)
     return m
-
+    
 # -------------------------
 # Session state: profiles
 # -------------------------
@@ -219,7 +220,7 @@ if 'profiles' not in st.session_state:
 # -------------------------
 # Navigation
 # -------------------------
-page = st.sidebar.selectbox("Navigasi", ["Dashboard", "Profil Tim", "Matrix Applications", "Map & Graph System"])
+page = st.sidebar.selectbox("Navigasi", ["Dashboard", "Profil Tim", "Graph Visualization", "Map & Graph System"])
 
 if page == "Dashboard":
     st.markdown('<div class="system-panel"><h1>Map System - Pulau Jawa</h1></div>', unsafe_allow_html=True)
@@ -238,58 +239,85 @@ elif page == "Profil Tim":
         st.subheader(f"Profil {i+1}")
         col1, col2 = st.columns([1, 3])
         with col1:
-            if profile.get("photo"):
+            # Tampilkan foto dari session state jika ada
+            if profile["photo"]:
                 st.image(profile["photo"], width=100)
-                if st.button(f"Hapus Foto {i+1}", key=f"delete_{i}"):
-                    st.session_state.profiles[i]["photo"] = None
+                # Tombol hapus foto hanya jika profil belum final (nama kosong)
+                if not profile.get("name"):
+                    if st.button(f"Hapus Foto {i+1}", key=f"delete_{i}"):
+                        st.session_state.profiles[i]["photo"] = None
+                        save_profiles(st.session_state.profiles)
+                        st.experimental_rerun()
+            # File uploader hanya jika profil belum final (nama kosong)
+            if not profile.get("name"):
+                uploaded_file = st.file_uploader(f"Upload Foto {i+1}", type=["jpg", "png"], key=f"upload_{i}")
+                if uploaded_file:
+                    # Buka gambar dan simpan ke session state
+                    try:
+                        image = Image.open(uploaded_file).convert("RGBA")
+                    except Exception:
+                        image = Image.open(uploaded_file)
+                    st.session_state.profiles[i]["photo"] = image
+                    # Tampilkan gambar langsung setelah upload
+                    st.image(image, width=100)
                     save_profiles(st.session_state.profiles)
-                    st.experimental_rerun()
-            uploaded_file = st.file_uploader(f"Upload Foto {i+1}", type=["jpg", "png"], key=f"upload_{i}")
-            if uploaded_file:
-                try:
-                    image = Image.open(uploaded_file).convert("RGBA")
-                except Exception:
-                    image = Image.open(uploaded_file)
-                st.session_state.profiles[i]["photo"] = image
-                st.image(image, width=100)
-                save_profiles(st.session_state.profiles)
         with col2:
-            st.session_state.profiles[i]["name"] = st.text_input("Nama", profile.get("name", ""), key=f"name_{i}")
-            st.session_state.profiles[i]["student_id"] = st.text_input("Student ID", profile.get("student_id", ""), key=f"id_{i}")
-            st.session_state.profiles[i]["university"] = st.text_input("Universitas", profile.get("university", ""), key=f"uni_{i}")
-            st.session_state.profiles[i]["major"] = st.text_input("Jurusan", profile.get("major", ""), key=f"major_{i}")
-            st.session_state.profiles[i]["year"] = st.text_input("Angkatan", profile.get("year", ""), key=f"year_{i}")
-            st.session_state.profiles[i]["contribution"] = st.text_area("Deskripsi Kontribusi", profile.get("contribution", ""), key=f"contrib_{i}")
-    # Save text changes
+            # Input fields disabled jika nama sudah diisi (profil final)
+            disabled = bool(profile.get("name"))
+            st.session_state.profiles[i]["name"] = st.text_input("Nama", profile.get("name", ""), key=f"name_{i}", disabled=disabled)
+            st.session_state.profiles[i]["student_id"] = st.text_input("Student ID", profile.get("student_id", ""), key=f"id_{i}", disabled=disabled)
+            st.session_state.profiles[i]["university"] = st.text_input("Universitas", profile.get("university", ""), key=f"uni_{i}", disabled=disabled)
+            st.session_state.profiles[i]["major"] = st.text_input("Jurusan", profile.get("major", ""), key=f"major_{i}", disabled=disabled)
+            st.session_state.profiles[i]["year"] = st.text_input("Angkatan", profile.get("year", ""), key=f"year_{i}", disabled=disabled)
+            st.session_state.profiles[i]["contribution"] = st.text_area("Deskripsi Kontribusi", profile.get("contribution", ""), key=f"contrib_{i}", disabled=disabled)
+    # Save profiles setelah semua input (untuk text changes)
     save_profiles(st.session_state.profiles)
 
-elif page == "Matrix Applications":
-    st.markdown('<div class="system-panel"><h2>📊 Matrix Applications</h2></div>', unsafe_allow_html=True)
-    province = st.selectbox("Pilih Provinsi untuk Graph", list(cities_data.keys()))
-    if province:
-        G = create_graph(province)
-        st.write(f"Graph untuk {province} dibuat dengan {len(G.nodes)} kota.")
+elif page == "Graph Visualization":
+    st.markdown('<div class="system-panel"><h2>📊 Graph Visualization</h2></div>', unsafe_allow_html=True)
+
+    
+    # Input Kontrol
+    st.subheader("1. ⚙️ Input Kontrol")
+    st.write("Anda dapat menentukan parameter dasar graf:")
+    num_nodes = st.number_input("Enter number of nodes", min_value=1, max_value=10, value=5, step=1)
+    num_edges = st.number_input("Enter number of edges", min_value=0, max_value=num_nodes*(num_nodes-1)//2, value=3, step=1)
+    
+    # Generate random graph
+    if num_nodes > 0:
+        G = nx.gnm_random_graph(num_nodes, num_edges)
+        # Relabel nodes to 1-based
+        mapping = {i: i+1 for i in range(num_nodes)}
+        G = nx.relabel_nodes(G, mapping)
         
-        # Use geographic positions to draw graph
-        st.subheader("Graph Visualization (pos geografis)")
+        # Visualisasi Graf
+        st.subheader("2. 🌐 Visualisasi Graf")
+        st.write("Terdapat area tampilan graf di mana struktur graf digambarkan secara visual. Simpul-simpul diberi nomor dan garis-garis menunjukkan koneksi di antaranya.")
         fig, ax = plt.subplots(figsize=(8, 6))
         fig.patch.set_facecolor('#1a1a2e')
         ax.set_facecolor('#1a1a2e')
-        # use stored 'pos' for plot
-        pos_geo = {n: data['pos'] for n, data in G.nodes(data=True)}
-        nx.draw(G, pos=pos_geo, with_labels=True, node_size=300, node_color='#16213e', edge_color='#e94560', ax=ax, font_color='#e94560')
+        pos = nx.spring_layout(G)
+        nx.draw(G, pos, with_labels=True, node_size=300, node_color='#16213e', edge_color='#e94560', ax=ax, font_color='#e94560')
         st.pyplot(fig)
         
-        # Degree tiap vertex
-        st.subheader("Degree Tiap Vertex")
+        # Degree of Each Node
+        st.subheader("3. 📝 Hasil Analisis: Degree of Each Node (Derajat Setiap Simpul)")
+        st.write("Ini menunjukkan analisis dasar dari topologi graf:")
+        st.markdown("- Degree (derajat) dari sebuah simpul adalah jumlah tepian yang terhubung langsung dengannya.")
         degrees = dict(G.degree())
-        deg_df = pd.DataFrame(list(degrees.items()), columns=["City", "Degree"]).set_index("City")
-        st.dataframe(deg_df)
+        for node, deg in degrees.items():
+            st.markdown(f"- Node {node}: {deg}")
         
-        # Adjacency Matrix (labelled)
-        st.subheader("Adjacency Matrix")
-        adj = nx.to_pandas_adjacency(G, weight='weight')
-        st.dataframe(adj)
+        # Adjacency Matrix
+        st.subheader("4. 🧮 Hasil Analisis: Adjacency Matrix (Matriks Ketetanggaan)")
+        st.write("Matriks ini adalah representasi matematis dari graf yang menunjukkan koneksi antar simpul:")
+        st.markdown(f"- Ini adalah matriks berukuran $N \\times N$ (di mana $N$ adalah jumlah simpul, yaitu ${num_nodes} \\times {num_nodes}$).")
+        st.markdown("- Nilai 1 di baris $i$ dan kolom $j$ berarti ada tepian antara simpul $i$ dan simpul $j$.")
+        st.markdown("- Nilai 0 berarti tidak ada tepian antara simpul tersebut.")
+        st.markdown("- Contoh: Nilai 1 di Baris 1, Kolom 2 menunjukkan bahwa Node 1 dan Node 2 terhubung. Nilai 0 di Baris 1, Kolom 3 menunjukkan bahwa Node 1 dan Node 3 tidak terhubung.")
+        st.markdown("- Karena graf ini tampak tidak berarah (undirected), matriksnya simetris (misalnya, Baris 2, Kolom 4 = 1, dan Baris 4, Kolom 2 juga = 1).")
+        adj_matrix = nx.adjacency_matrix(G).todense()
+        st.dataframe(adj_matrix)
 
 elif page == "Map & Graph System":
     st.markdown('<div class="system-panel"><h2>🗺️ Map & Graph System</h2></div>', unsafe_allow_html=True)
@@ -303,8 +331,8 @@ elif page == "Map & Graph System":
             start_city = st.selectbox("Kota Awal", list(G.nodes), key="start")
         with col2:
             end_city = st.selectbox("Kota Tujuan", list(G.nodes), key="end")
-        
-        # Pencarian Kota (case-insensitive)
+     
+             # Pencarian Kota (case-insensitive)
         st.subheader("🔍 Pencarian Kota")
         search_input = st.text_input("Masukkan nama kota (bisa partial, case-insensitive)", "")
         found_matches = []
