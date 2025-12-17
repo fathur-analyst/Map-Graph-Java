@@ -41,12 +41,11 @@ def load_profiles():
                     except Exception:
                         profile["photo"] = None
             return data
-    # Default example profiles
+    # Default profiles (reset ke data baru)
     return [
-        {"name": "Pembuat 1", "student_id": "12345678", "university": "Universitas Indonesia", "major": "Informatika", "year": "2020", "contribution": "Pengembang UI dan Graph Theory", "photo": None},
-        {"name": "Pembuat 2", "student_id": "87654321", "university": "Universitas Gadjah Mada", "major": "Teknik Komputer", "year": "2021", "contribution": "Pengembang Algoritma dan Data Kota", "photo": None}
+        {"name": "fathurrizqi", "student_id": "021202500028", "university": "president university", "major": "actuarial science", "year": "2025", "contribution": "web developer", "photo": None},
+        {"name": "candle light julio alfredo laia", "student_id": "021202500024", "university": "president university", "major": "actuarial science", "year": "2025", "contribution": "web theory", "photo": None}
     ]
-
 def save_profiles(profiles):
     data = []
     for profile in profiles:
@@ -390,3 +389,4 @@ elif page == "Map & Graph System":
         map_zoom_target = zoom_city if (zoom_city and zoom_city in G.nodes) else (end_city if end_city in G.nodes else None)
         m = create_map(G, path=path, zoom_city=map_zoom_target)
         st_folium(m, width=700, height=500)
+
